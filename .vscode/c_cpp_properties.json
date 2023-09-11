@@ -1,0 +1,26 @@
+{
+  "configurations": [
+    {
+      "name": "CTR_",
+      "includePath": [
+        "c:/Users/Rambo/Documents/newtendo/3ds_newtendo_mgr/**",
+        "C:\\devkitPro\\libctru\\include"
+      ],
+      "defines": ["_DEBUG", "UNICODE", "_UNICODE"],
+      "windowsSdkVersion": "10.0.22000.0",
+      "compilerPath": "C:/devkitPro/devkitARM/bin/arm-none-eabi-g++",
+      "cStandard": "c17",
+      "cppStandard": "c++17",
+      "intelliSenseMode": "gcc-arm",
+      "mergeConfigurations": false,
+      "browse": {
+        "path": [
+          "c:/Users/Rambo/Documents/newtendo/3ds_newtendo_mgr/**",
+          "${workspaceFolder}"
+        ],
+        "limitSymbolsToIncludedHeaders": true
+      }
+    }
+  ],
+  "version": 4
+}
