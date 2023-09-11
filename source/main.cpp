@@ -4,24 +4,9 @@
 #include <3ds.h>
 
 #include <vector>
-#include "frda.h"
+#include "types.h"
 
-#define ESCAPE_SKIP_1_LINE "\x1b[1E"
-#define ESCAPE_GO_BACK_1_LINE "\x1b[1A"
-#define ESCAPE_CLEAR_CURRENT_LINE "\x1b[2K"
-#define ESCAPE_CLEAR_CURRENT_CHAR "\x1b[P"
-#define ESCAPE_CLEAR_UNTIL_END "\x1b[K"
-
-#define ESCAPE_MOVE_RIGHT(n) (printf("\x1b[%dC", n));
-#define ESCAPE_MOVE_LEFT(n) (printf("\x1b[%dD", n));
-
-struct NASLocalAccount
-{
-	u8 accountId;
-	NASType type;
-	NASEnvironment env;
-	u8 envNum;
-};
+#include "menus/menu_Main.h"
 
 const char *NASType_toString(NASType type)
 {
@@ -47,6 +32,22 @@ const char NASEnvironment_toString(NASEnvironment env)
 
 	static char envs[] = {'L', 'C', 'S', 'D', 'I', 'T', 'J', 'X'};
 	return envs[(int)env];
+}
+
+Menu *currentMenu = nullptr;
+std::vector<Menu *> menuHistory;
+
+void SetCurrentMenu(Menu *m)
+{
+	menuHistory.push_back(currentMenu);
+	currentMenu = m;
+}
+
+void SetPreviousMenu()
+{
+	Menu *m = menuHistory.back();
+	menuHistory.pop_back();
+	SetCurrentMenu(m);
 }
 
 int main(int argc, char *argv[])
@@ -120,8 +121,22 @@ int main(int argc, char *argv[])
 
 		if (R_FAILED(rc))
 		{
-			// TODO: quit
-			;
+			printf("FRDA_UnloadLocalAccount() failed. Exit in 3 ...\n" ESCAPE_GO_BACK_1_LINE);
+			for (int i = 0; i < 3; i++)
+			{
+
+				ESCAPE_MOVE_RIGHT(42)
+				printf(ESCAPE_CLEAR_UNTIL_END);
+				printf("%d ...\r\n" ESCAPE_GO_BACK_1_LINE, 3 - i);
+
+				svcSleepThread(1 * (1000 * 1000 * 1000));
+			}
+
+			printf("\n");
+
+			frdaExit();
+			gfxExit();
+			return 0;
 		}
 	}
 
@@ -150,20 +165,22 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	printf("\n");
-	printf("Number of NASC accounts: %d\n", validAccountIDs.size());
+	svcSleepThread(1 * (1000 * 1000 * 1000));
 
-	consoleSelect(&bottomConsole);
-	consoleClear();
-
-	for (auto &ent : validAccountIDs)
-	{
-		printf("NASC account %d: %5s | %c%01d\n", ent.accountId, NASType_toString(ent.type), NASEnvironment_toString(ent.env), ent.envNum);
-	}
+	currentMenu = new MenuMain();
 
 	// Main loop
 	while (aptMainLoop())
 	{
+
+		consoleSelect(&topConsole);
+		consoleClear();
+
+		consoleSelect(&bottomConsole);
+		consoleClear();
+
+		currentMenu->Render(&topConsole, &bottomConsole);
+
 		gspWaitForVBlank();
 		gfxSwapBuffers();
 		hidScanInput();
@@ -172,6 +189,8 @@ int main(int argc, char *argv[])
 		u32 kDown = hidKeysDown();
 		if (kDown & KEY_START)
 			break; // break in order to return to hbmenu
+
+		currentMenu->Update(kDown);
 	}
 
 	frdaExit();
