@@ -10,6 +10,8 @@ extern "C"
 {
 #endif
 
+#include <3ds/services/frd.h>
+
     /// Enum to use with FRD account management functions
     typedef enum
     {
@@ -49,6 +51,12 @@ extern "C"
     Result FRDA_GetMyLocalAccountId(u8 *outAccountId);
 
     /**
+     * @brief Gets the current user's friend key.
+     * @param key Pointer to write the current user's friend key to.
+     */
+    Result FRDA_GetMyFriendKey(FriendKey *key);
+
+    /**
      * @brief Sets the Friend API to use a specific SDK version.
      * @param sdkVer The SDK version needed to be used.
      */
@@ -72,7 +80,7 @@ extern "C"
     Result FRDA_CreateLocalAccount(u8 accountId, NASType nasType, NASEnvironment nasEnv, u8 nasEnvNumber);
 
     /**
-     * @brief Deletes a local account by ID
+     * @brief Deletes a local account by ID (doesn't seem to really work, but it breaks the account and makes it unloadable...)
      * @param accountId Account ID
      */
     Result FRDA_DeleteLocalAccount(u8 accountId);

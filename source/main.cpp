@@ -3,10 +3,11 @@
 #include <string.h>
 #include <3ds.h>
 
+#include <optional>
 #include <vector>
+#include <algorithm>
+#include <string>
 #include "types.h"
-
-#include "menus/menu_Main.h"
 
 const char *NASType_toString(NASType type)
 {
@@ -34,20 +35,42 @@ const char NASEnvironment_toString(NASEnvironment env)
 	return envs[(int)env];
 }
 
-Menu *currentMenu = nullptr;
-std::vector<Menu *> menuHistory;
-
-void SetCurrentMenu(Menu *m)
+void WaitForStartPress()
 {
-	menuHistory.push_back(currentMenu);
-	currentMenu = m;
+	while (aptMainLoop())
+	{
+		gspWaitForVBlank();
+		gfxSwapBuffers();
+		hidScanInput();
+
+		// Your code goes here
+		u32 kDown = hidKeysDown();
+		if (kDown & KEY_START)
+			break; // break in order to return to hbmenu
+	}
 }
 
-void SetPreviousMenu()
+void WaitForStartPressOrReset()
 {
-	Menu *m = menuHistory.back();
-	menuHistory.pop_back();
-	SetCurrentMenu(m);
+	while (aptMainLoop())
+	{
+		gspWaitForVBlank();
+		gfxSwapBuffers();
+		hidScanInput();
+
+		// Your code goes here
+		u32 kDown = hidKeysDown();
+		if (kDown & KEY_START)
+			break; // break in order to return to hbmenu
+
+		if (kDown & KEY_SELECT)
+		{
+			aptInit();
+			APT_HardwareResetAsync();
+			aptExit();
+			break;
+		}
+	}
 }
 
 int main(int argc, char *argv[])
@@ -67,18 +90,10 @@ int main(int argc, char *argv[])
 	Result rc = frdaInit();
 	if (R_FAILED(rc))
 	{
-		printf("frdaInit() failed. Exiting in 3s ...\n" ESCAPE_GO_BACK_1_LINE);
-		for (int i = 0; i < 3; i++)
-		{
-
-			ESCAPE_MOVE_RIGHT(30)
-			printf(ESCAPE_CLEAR_UNTIL_END);
-			printf("%ds ...\r\n" ESCAPE_GO_BACK_1_LINE, 3 - i);
-
-			svcSleepThread(1 * (1000 * 1000 * 1000));
-		}
-
+		printf("frdaInit() failed.\n");
 		printf("\n");
+		printf("Press START to exit.\n");
+		WaitForStartPress();
 
 		gfxExit();
 		return 0;
@@ -102,7 +117,7 @@ int main(int argc, char *argv[])
 			printf(ESCAPE_CLEAR_UNTIL_END);
 			printf("%s\r\n" ESCAPE_GO_BACK_1_LINE, i == 5 ? "done!" : &suspension[2 - (i % 3)]);
 
-			svcSleepThread(3 * (1000 * 1000 * 100));
+			svcSleepThread(3UL * (1000 * 1000 * 100));
 		}
 
 		printf("\n");
@@ -110,29 +125,21 @@ int main(int argc, char *argv[])
 		ndmuExit();
 	}
 
-	// Set correct client SDK and unload accounts
+	// Set correct client SDK and unload current account
 	{
 		// Upgrade FRD Client SDK version otherwise it returns 0xC960C4F6
 		// if(m_CurrentClientSDK < 0x70000C8) {
 		// 		return 0xC960C4F6;
 		// }
 		FRDA_SetClientSdkVersion(0x70000C8);
+		FRDA_Save();
 		rc = FRDA_UnloadLocalAccount();
-
-		if (R_FAILED(rc))
+		if (R_FAILED(rc) && rc != (Result)0xC8A0C4EE) // 0xC8A0C4EE -> No acount loaded
 		{
-			printf("FRDA_UnloadLocalAccount() failed. Exit in 3 ...\n" ESCAPE_GO_BACK_1_LINE);
-			for (int i = 0; i < 3; i++)
-			{
-
-				ESCAPE_MOVE_RIGHT(42)
-				printf(ESCAPE_CLEAR_UNTIL_END);
-				printf("%d ...\r\n" ESCAPE_GO_BACK_1_LINE, 3 - i);
-
-				svcSleepThread(1 * (1000 * 1000 * 1000));
-			}
-
+			printf("FRDA_UnloadLocalAccount() failed.\n");
 			printf("\n");
+			printf("Press START to exit.\n");
+			WaitForStartPress();
 
 			frdaExit();
 			gfxExit();
@@ -140,7 +147,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	std::vector<NASLocalAccount> validAccountIDs;
+	std::vector<NASLocalAccount> nasAccountList;
 
 	printf("\n");
 	printf("Loading NASC accounts: 0 / 255\n" ESCAPE_GO_BACK_1_LINE);
@@ -161,37 +168,167 @@ int main(int argc, char *argv[])
 
 			FRDA_GetServerTypes(&type, &env, &envNum);
 			NASLocalAccount localAccount = {.accountId = id, .type = type, .env = env, .envNum = envNum};
-			validAccountIDs.push_back(localAccount);
+
+			FriendKey key;
+			FRDA_GetMyFriendKey(&key);
+			localAccount.pid = key.principalId;
+
+			nasAccountList.push_back(localAccount);
+			FRDA_UnloadLocalAccount();
 		}
 	}
 
-	svcSleepThread(1 * (1000 * 1000 * 1000));
+	FRDA_UnloadLocalAccount();
+	svcSleepThread(500UL * (1000 * 1000));
 
-	currentMenu = new MenuMain();
-
-	// Main loop
-	while (aptMainLoop())
+	// Show NASC accounts on the bottom screen
 	{
-
-		consoleSelect(&topConsole);
-		consoleClear();
-
 		consoleSelect(&bottomConsole);
 		consoleClear();
 
-		currentMenu->Render(&topConsole, &bottomConsole);
+		printf("NASC Account List\n");
+		printf("\n");
+		for (auto &nas : nasAccountList)
+			printf("ID %03d: %4s %c%01d | PID %lu\n", nas.accountId, NASType_toString(nas.type), NASEnvironment_toString(nas.env), nas.envNum, nas.pid);
 
+		printf("\n");
+
+		// Vertical line
+		{
+			char buffer[256] = {0};
+			int i;
+			for (i = 0; i < bottomConsole.consoleWidth; i++)
+				buffer[i] = '_';
+
+			buffer[i] = 0;
+			printf("%s\n", buffer);
+		}
+	}
+
+	consoleSelect(&topConsole);
+	consoleClear();
+
+	u8 accountId = 1;
+	NASType accountType = NAS_LIVE;
+	NASEnvironment accountEnv = NAS_ENV_L;
+	std::string serverName = "Nintendo";
+
+	printf("Select your server:\n");
+	printf("\n");
+	printf("Press X to use" CONSOLE_BLUE " Newtendo.\n" CONSOLE_RESET);
+	printf("Press Y to use" CONSOLE_MAGENTA " Pretendo.\n" CONSOLE_RESET);
+
+	u32 kDown = 0;
+	while (aptMainLoop())
+	{
 		gspWaitForVBlank();
 		gfxSwapBuffers();
 		hidScanInput();
 
 		// Your code goes here
-		u32 kDown = hidKeysDown();
+		kDown = hidKeysDown();
+
+		if (kDown & KEY_X)
+		{
+			serverName = "Newtendo";
+			accountId = NEWTENDO_ACCOUNT_ID;
+			accountType = NAS_DEV;
+			accountEnv = NAS_ENV_L;
+			break;
+		}
+		else if (kDown & KEY_Y)
+		{
+			serverName = "Pretendo";
+			accountId = PRETENDO_ACCOUNT_ID;
+			accountType = NAS_TEST;
+			accountEnv = NAS_ENV_L;
+			break;
+		}
+	}
+
+	consoleClear();
+
+	auto search = std::find_if(nasAccountList.begin(), nasAccountList.end(), [accountId, accountType, accountEnv](NASLocalAccount const &n)
+							   { return (n.accountId == accountId) && (n.env == accountEnv) && (n.type == accountType); });
+
+	std::optional<NASLocalAccount> existingAccount = std::nullopt;
+	if (search != nasAccountList.end())
+		existingAccount = *search;
+
+	printf("Press START to exit the app.\n");
+	printf("\n");
+	if (existingAccount)
+	{
+		printf("Press A to load your %s account.\n", serverName.c_str());
+		printf("Press B to load your Nintendo account.\n");
+		printf("Press X to delete your %s account.\n", serverName.c_str());
+	}
+	else
+	{
+		printf("Press Y to create your %s account.\n", serverName.c_str());
+	}
+
+	while (aptMainLoop())
+	{
+		gspWaitForVBlank();
+		gfxSwapBuffers();
+		hidScanInput();
+
+		// Your code goes here
+		kDown = hidKeysDown();
 		if (kDown & KEY_START)
 			break; // break in order to return to hbmenu
 
-		currentMenu->Update(kDown);
+		if (existingAccount && ((kDown & KEY_A) || (kDown & KEY_B) || (kDown & KEY_X)))
+			break;
+
+		if (!existingAccount && (kDown & KEY_Y))
+			break;
 	}
+
+	consoleClear();
+
+	if (!(kDown & KEY_START))
+	{
+		if (existingAccount)
+		{
+			if (kDown & KEY_A)
+				rc = FRDA_LoadLocalAccount(accountId);
+
+			if (kDown & KEY_B)
+				rc = FRDA_LoadLocalAccount(1);
+
+			if (kDown & KEY_X)
+				rc = FRDA_DeleteLocalAccount(accountId);
+		}
+		else
+		{
+			if (kDown & KEY_Y)
+				rc = FRDA_CreateLocalAccount(accountId, accountType, accountEnv, 1);
+		}
+
+		if (R_FAILED(rc))
+		{
+			printf("Action failed (0x%08lx).\n", rc);
+			printf("\n");
+			printf("Press SELECT to restart your console.\n");
+			printf("Press START to exit.\n");
+
+			WaitForStartPressOrReset();
+		}
+		else
+		{
+			printf("Action was a success!\n" ESCAPE_GO_BACK_1_LINE);
+			printf("\n");
+			printf("Press START to exit.\n");
+			WaitForStartPress();
+		}
+	}
+
+	u8 id;
+	rc = FRDA_GetMyLocalAccountId(&id);
+	if (R_FAILED(rc))
+		FRDA_LoadLocalAccount(1);
 
 	frdaExit();
 	gfxExit();

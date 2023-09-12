@@ -2,4 +2,6 @@
 *.elf
 *.smdh
 build
-code.bin
+*.bin
+*.ips
+patch/*/**

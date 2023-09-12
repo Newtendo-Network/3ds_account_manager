@@ -51,6 +51,21 @@ Result FRDA_GetMyLocalAccountId(u8 *outAccountId)
     return (Result)cmdbuf[1];
 }
 
+Result FRDA_GetMyFriendKey(FriendKey *key)
+{
+    Result ret = 0;
+    u32 *cmdbuf = getThreadCommandBuffer();
+
+    cmdbuf[0] = IPC_MakeHeader(0x5, 0, 0);
+
+    if (R_FAILED(ret = svcSendSyncRequest(frdaHandle)))
+        return ret;
+
+    memcpy(key, &cmdbuf[2], sizeof(FriendKey));
+
+    return (Result)cmdbuf[1];
+}
+
 Result FRDA_SetClientSdkVersion(u32 sdkVer)
 {
     Result ret = 0;
