@@ -12,7 +12,7 @@
 .close
 
 ; Pretendo replaces the test URL
-; https://nasc.test.nintendowifi.net/ac -> https://nasc.newtendo.net/ac
+; https://nasc.test.nintendowifi.net/ac -> https://nasc.pretendo.cc/ac/
 .org 0x16129a
   .area 38
     .asciiz "https://nasc.pretendo.cc/ac/"
