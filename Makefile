@@ -33,8 +33,7 @@ include $(DEVKITARM)/3ds_rules
 #---------------------------------------------------------------------------------
 TARGET		:=	$(notdir $(CURDIR))
 BUILD		:=	build
-SOURCES		:=	source \
-				source/menus
+SOURCES		:=	source
 DATA		:=	data
 INCLUDES	:=	include
 GRAPHICS	:=	gfx
@@ -43,7 +42,7 @@ GFXBUILD	:=	$(BUILD)
 #GFXBUILD	:=	$(ROMFS)/gfx
 
 APP_TITLE		:= Newtendo Account Manager
-APP_DESCRIPTION	:= Manage your console accounts between Nintendo and Newtendo Network
+APP_DESCRIPTION	:= Manage your console network accounts
 APP_AUTHOR		:= Rambo6Glaz (Newtendo)
 
 #---------------------------------------------------------------------------------
