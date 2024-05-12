@@ -12,6 +12,7 @@
 #include <string>
 
 #include "frda.h"
+#include "acta.h"
 
 #define ESCAPE_SKIP_1_LINE "\x1b[1E"
 #define ESCAPE_GO_BACK_1_LINE "\x1b[1A"

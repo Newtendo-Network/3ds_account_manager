@@ -5,8 +5,8 @@
 #include <3ds/ipc.h>
 #include <3ds/result.h>
 #include <3ds/srv.h>
+
 #include "frda.h"
-#include <3ds/util/utf.h>
 
 static Handle frdaHandle;
 static int frdaRefCount;
