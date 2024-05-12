@@ -27,16 +27,49 @@
 #define NINTENDO_TEXT CONSOLE_RED "Nintendo" CONSOLE_RESET
 #define PRETENDO_TEXT CONSOLE_MAGENTA "Pretendo" CONSOLE_RESET
 #define NEWTENDO_TEXT CONSOLE_CYAN "Newtendo" CONSOLE_RESET
+#define UNKNOWN_TEXT CONSOLE_YELLOW "Unknown" CONSOLE_RESET
 
 #define NINTENDO_ACCOUNT_ID 1
 #define PRETENDO_ACCOUNT_ID 2
 #define NEWTENDO_ACCOUNT_ID 77
 
-struct NASLocalAccount
+struct NetworkAccount
 {
-    u32 pid;
-    u8 accountId;
-    NASType type;
-    NASEnvironment env;
-    u8 envNum;
+    u8 slot_id = 0;
+    std::string nnid;
+    std::wstring mii_name;
+    u32 pid = 0;
+
+    NASType nasc_type = NAS_UNKNOWN;
+    u8 nasc_local_id = 0;
+
+    bool nasc_exists = false;
+    bool act_exists = false;
+
+    bool do_match_env_type = false;
+
+    const char *printText = UNKNOWN_TEXT;
+
+    const char *GetDefaultText(u8 currentSlot)
+    {
+
+        if (slot_id == currentSlot)
+            return "(current)";
+
+        return "";
+    }
+
+    const char *GetExistanceText()
+    {
+        if (!nasc_exists && !act_exists)
+            return "           ";
+
+        if (nasc_exists && !act_exists)
+            return "(nasc)     ";
+
+        if (!nasc_exists && act_exists)
+            return "(act)      ";
+
+        return "(nasc, act)";
+    }
 };
