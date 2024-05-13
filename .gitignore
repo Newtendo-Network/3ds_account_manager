@@ -2,7 +2,6 @@
 *.elf
 *.smdh
 build
-*.bin
-*.ips
-patch/*/**
+
+# VSCode
 .vscode
