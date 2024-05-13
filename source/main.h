@@ -50,11 +50,11 @@ struct NetworkAccount
 
     const char *printText = UNKNOWN_TEXT;
 
-    const char *GetDefaultText(u8 currentSlot)
+    const char *GetDefaultText(u8 defaultSlot)
     {
 
-        if (slot_id == currentSlot)
-            return "(current)";
+        if (slot_id == defaultSlot && defaultSlot)
+            return "(default)";
 
         return "";
     }
@@ -62,7 +62,7 @@ struct NetworkAccount
     const char *GetExistanceText()
     {
         if (!nasc_exists && !act_exists)
-            return "           ";
+            return "(none)     ";
 
         if (nasc_exists && !act_exists)
             return "(nasc)     ";
